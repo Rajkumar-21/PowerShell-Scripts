@@ -1,2 +1,2 @@
 # PowerShell-Scripts
-Scrits which I created to automate my task easier
+Scripts which helps day to day activities.
