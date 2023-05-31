@@ -1,0 +1,41 @@
+[CmdletBinding()]
+Param(
+    [Parameter(Mandatory = $true)][string[]]$vmNames,
+    [Parameter(Mandatory = $true)][string]$rgName
+)
+
+$diskSize=2048
+$location = 'East US 2'
+$storageType = 'Premium_LRS'
+foreach($vmName in $vmNames)
+{
+    # Getting the VM Details
+    $vm = Get-AzVM -Name $vmName -ResourceGroupName $rgName -Verbose
+        # Listing the available Data disk lun details
+        $luns = $vm.StorageProfile.DataDisks.Lun
+        $lun = 0
+        while ($luns -contains $lun) {
+            $lun++
+        }
+
+        # Create the Unique LUN values
+        $dataDiskName = $vmName + '_dataDisk_' + $lun.ToString()
+        Write-Host "Creating" $dataDiskName" ....."
+
+        # Stop the VM for the activity
+        Stop-AzVM -ResourceGroupName $rgName -Name $vmName -Force -Verbose
+
+        # Creating the Disk configuration
+        $diskConfig = New-AzDiskConfig -SkuName $storageType -Location $location -CreateOption Empty -DiskSizeGB $diskSize -Tier P40 -Verbose
+        # Creating New Data disk with the disk configuration
+        $dataDisk = New-AzDisk -DiskName $dataDiskName -Disk $diskConfig -ResourceGroupName $rgName -Verbose
+
+        # Attaching the created disk to the Azure VM
+        $vm = Add-AzVMDataDisk -VM $vm -Name $dataDiskName -CreateOption Attach -ManagedDiskId $dataDisk.Id -Lun $lun -Verbose
+
+        # Update the Azure vm with the changes made to apply
+        Update-AzVM -VM $vm -ResourceGroupName $rgName -Verbose
+
+        # Start the Azure vm
+        Start-AzVM -ResourceGroupName $rgName -Name $vmName -Verbose
+}
